@@ -10,6 +10,7 @@ import cv2
 from scipy.stats import mannwhitneyu
 from statsmodels.stats.multitest import multipletests
 from scipy.interpolate import CubicSpline
+from scipy.stats import bootstrap
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -17,8 +18,8 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
-from medi_pipeline.features.medi_analysis import estimate_direction_3d_fft
+from mouse_medi.config import paths
+from mouse_medi.features.medi_analysis import estimate_direction_3d_fft
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -114,21 +115,71 @@ def generate_fig4():
     df['diff_dir'] = get_circular_diff(df['pref_dir_MEDI'], df['pref_dir_grating'], 360)
     
     thresholds = np.arange(0, 1.0, 0.01)
-    results_line = []
-    for x in thresholds:
-        mask = (df['gOSI_grating'] > x) & (df['gDSI_grating'] > x)
-        filtered_df = df[mask]
-        count = len(filtered_df)
-        if count < 100: break
-        results_line.append({
-            'threshold': x,
-            'med_ori': np.nanmedian(filtered_df['diff_ori']),
-            'med_dir': np.nanmedian(filtered_df['diff_dir']),
-            'mean_tf': np.nanmean(filtered_df['diff_tf_log2']),
-            'mean_sf': np.nanmean(filtered_df['diff_sf_log2']),
-            'med_corr': np.nanmedian(filtered_df['curve_corr'])
+    results = []
+    
+    for thr in thresholds:
+        mask = (df['gOSI_grating'] > thr) & (df['gDSI_grating'] > thr)
+        sub = df[mask]
+        if len(sub) < 100:
+            break
+        results.append({
+            'threshold': thr,
+            'n': len(sub),
+            'corr': sub['curve_corr'].values,
+            'tf_log2': sub['diff_tf_log2'].values,
+            'sf_log2': sub['diff_sf_log2'].values,
+            'ori': sub['diff_ori'].values,
+            'dir': sub['diff_dir'].values
         })
-    line_df = pd.DataFrame(results_line)
+    
+    def bootstrap_median_ci(data, n_bootstrap=1000, alpha=0.05):
+        if len(data) == 0:
+            return (np.nan, np.nan)
+        medians = []
+        rng = np.random.default_rng()
+        for _ in range(n_bootstrap):
+            sample = rng.choice(data, size=len(data), replace=True)
+            medians.append(np.median(sample))
+        lower = np.percentile(medians, 100 * alpha / 2)
+        upper = np.percentile(medians, 100 * (1 - alpha / 2))
+        return lower, upper
+    
+    def mean_ci(data, alpha=0.05):
+        n = len(data)
+        if n == 0:
+            return (np.nan, np.nan)
+        mean = np.mean(data)
+        se = np.std(data, ddof=1) / np.sqrt(n)
+        z = 1.96
+        return mean - z*se, mean + z*se
+    
+    thr_vals = [r['threshold'] for r in results]
+    corr_medians = [np.median(r['corr']) for r in results]
+    corr_lower, corr_upper = [], []
+    for r in results:
+        l, u = bootstrap_median_ci(r['corr'])
+        corr_lower.append(l)
+        corr_upper.append(u)
+    
+    tf_means = [np.mean(r['tf_log2']) for r in results]
+    tf_lower, tf_upper = [], []
+    sf_means = [np.mean(r['sf_log2']) for r in results]
+    sf_lower, sf_upper = [], []
+    for r in results:
+        l_tf, u_tf = mean_ci(r['tf_log2'])
+        tf_lower.append(l_tf); tf_upper.append(u_tf)
+        l_sf, u_sf = mean_ci(r['sf_log2'])
+        sf_lower.append(l_sf); sf_upper.append(u_sf)
+    
+    ori_medians = [np.median(r['ori']) for r in results]
+    ori_lower, ori_upper = [], []
+    dir_medians = [np.median(r['dir']) for r in results]
+    dir_lower, dir_upper = [], []
+    for r in results:
+        l_o, u_o = bootstrap_median_ci(r['ori'])
+        ori_lower.append(l_o); ori_upper.append(u_o)
+        l_d, u_d = bootstrap_median_ci(r['dir'])
+        dir_lower.append(l_d); dir_upper.append(u_d)
     
     video_dir = os.path.join(paths.RESULTS_DIR, 'MEDI')
     gif_files = glob.glob(os.path.join(video_dir, '**', '*.gif'), recursive=True)
@@ -182,8 +233,8 @@ def generate_fig4():
         
         ax_p.set_yticklabels([])
         ax_p.set_xticks(np.deg2rad([0, 45, 90, 135, 180, 225, 270, 315]))
-        ax_p.tick_params(axis='x', pad=22, labelsize=22, colors='#555555')
-        ax_p.tick_params(axis='y', labelsize=20, colors='#555555')
+        ax_p.tick_params(axis='x', pad=22, labelsize=22)
+        ax_p.tick_params(axis='y', labelsize=20)
         if 'curve_corr' in best_u:
             corr_val = best_u['curve_corr']
             ax_p.text(0.87, -0.09, f"r = {corr_val:.2f}", color='black', transform=ax_p.transAxes, fontsize=22, bbox=dict(boxstyle="round,pad=0.3", facecolor="#F8F8F8", edgecolor="#DDDDDD"))
@@ -205,7 +256,7 @@ def generate_fig4():
             cell.set_linewidth(1.0)
             if row == 0: cell.set_text_props(color='black'); cell.set_facecolor('#EBEBEB')
             else:
-                if col == 0: cell.set_text_props(color='#444444', ha='left'); cell.PAD = 0.05
+                if col == 0: cell.set_text_props(color='black', ha='left'); cell.PAD = 0.05
                 else:
                     if col == 1: cell.set_text_props(color=c_m)
                     elif col == 2: cell.set_text_props(color=c_g)
@@ -220,7 +271,7 @@ def generate_fig4():
     
     ax_p1 = fig.add_subplot(gs_row0[0], projection='polar')
     ax_t1 = fig.add_subplot(gs_row0[1])
-    plot_neuron_example(ax_p1, ax_t1, 6, 2, 6139)
+    plot_neuron_example(ax_p1, ax_t1, 5, 7, 3838)
     
     ax_p2 = fig.add_subplot(gs_row0[2], projection='polar')
     ax_t2 = fig.add_subplot(gs_row0[3])
@@ -297,28 +348,34 @@ def generate_fig4():
     ax_f.set_position([pos.x0 - 0.015, pos.y0 - 0.01, pos.width, pos.height])
 
     ax_d = fig.add_subplot(gs_mid[0])
-    ax_d.plot(line_df['threshold'], line_df['mean_tf'], color='#C44E52', linewidth=5, label=r'$\Delta$ TF')
-    ax_d.plot(line_df['threshold'], line_df['mean_sf'], color='#8172B3', linewidth=5, label=r'$\Delta$ SF')
-    ax_d.set_xlabel("Threshold")
+    ax_d.fill_between(thr_vals, tf_lower, tf_upper, color='#C44E52', alpha=0.2)
+    ax_d.plot(thr_vals, tf_means, color='#C44E52', linewidth=5, label=r'Pref TF')
+    ax_d.fill_between(thr_vals, sf_lower, sf_upper, color='#8172B3', alpha=0.2)
+    ax_d.plot(thr_vals, sf_means, color='#8172B3', linewidth=5, label=r'Pref SF')
+    ax_d.set_xlabel("Threshold (gOSI & gDSI)")
     ax_d.set_ylabel(r"Mean Diff. ($\log_2$)")
     ax_d.margins(y=0.4)
     ax_d.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_d.set_yticks([0, 0.4, 0.8, 1.2, 1.6])
-    ax_d.legend(bbox_to_anchor=(1.0, 1.15),loc='upper right',frameon=False)
+    ax_d.legend(bbox_to_anchor=(1.0, 1.15), loc='upper right', frameon=False)
     pos = ax_d.get_position()
     ax_d.set_position([pos.x0 - 0.02, pos.y0, pos.width, pos.height])
     
     ax_c = fig.add_subplot(gs_left[0])
-    ax_c.plot(line_df['threshold'], line_df['med_corr'], color='#CCB974', linewidth=5, label='Mean Corr (r)')
-    ax_c.set_xlabel("Threshold"); ax_c.set_ylabel("Median Corr.")
+    ax_c.fill_between(thr_vals, corr_lower, corr_upper, color='#CCB974', alpha=0.2)
+    ax_c.plot(thr_vals, corr_medians, color='#CCB974', linewidth=5, label='Median Corr')
+    ax_c.set_xlabel("Threshold (gOSI & gDSI)")
+    ax_c.set_ylabel("Median Correlation")
     ax_c.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_c.set_yticks([0.5, 0.6, 0.7, 0.8])
     
     ax_e = fig.add_subplot(gs_left[1])
-    ax_e.plot(line_df['threshold'], line_df['med_ori'], color='#FF8C00', linewidth=5, label=r'$\Delta$ Orientation')
-    ax_e.plot(line_df['threshold'], line_df['med_dir'], color='#00CED1', linewidth=5, label=r'$\Delta$ Direction')
-    ax_e.set_xlabel("Threshold")
+    ax_e.fill_between(thr_vals, ori_lower, ori_upper, color='#FF8C00', alpha=0.2)
+    ax_e.plot(thr_vals, ori_medians, color='#FF8C00', linewidth=5, label=r'Pref Ori')
+    ax_e.fill_between(thr_vals, dir_lower, dir_upper, color='#00CED1', alpha=0.2)
+    ax_e.plot(thr_vals, dir_medians, color='#00CED1', linewidth=5, label=r'Pref Dir')
+    ax_e.set_xlabel("Threshold (gOSI & gDSI)")
     ax_e.set_ylabel(r"Median Diff. (deg)")
     ax_e.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_e.set_yticks([0, 10, 20, 30, 40, 50])
-    ax_e.legend(bbox_to_anchor=(1.1, 1.05),loc='upper right',frameon=False)
+    ax_e.legend(bbox_to_anchor=(1.1, 1.05), loc='upper right', frameon=False)
         
     for ax in [ax_d, ax_c, ax_e]:
         ax.spines['top'].set_visible(False)
@@ -339,8 +396,8 @@ def generate_fig4():
     fig.text(ax_c.get_position().x0 - 0.025, y_row1_top, 'c', **lbl_font)
     fig.text(ax_e.get_position().x0 - 0.025, y_row1_bot, 'e', **lbl_font)
     fig.text(ax_d.get_position().x0 - 0.025, y_row1_top, 'd', **lbl_font)
-    fig.text(ax_f.get_position().x0 - 0.015, y_row1_bot, 'f', **lbl_font)
-    fig.text(ax_g.get_position().x0 - 0.035, ax_g.get_position().y1 + 0.04, 'g', **lbl_font)
+    fig.text(ax_f.get_position().x0 - 0.015, y_row1_bot, 'g', **lbl_font)
+    fig.text(ax_g.get_position().x0 - 0.035, ax_g.get_position().y1 + 0.04, 'f', **lbl_font)
     
     out_path = os.path.join(paths.FIGURES_DIR, 'fig4.pdf')
     plt.savefig(out_path, dpi=300, bbox_inches='tight')

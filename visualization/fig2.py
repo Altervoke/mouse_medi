@@ -7,12 +7,13 @@ import imageio.v2 as imageio
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
-current_dir = os.path.dirname(os.path.abspath('medi_pipeline/visualization/fig2.py'))
+current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
+
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 def set_style():
     sns.set_style("white", {'axes.spines.top': False, 'axes.spines.right': False})
@@ -94,7 +95,7 @@ def plot_mesi_gabor_examples(fig, outer_gs):
             for spine in ax_g.spines.values(): spine.set_visible(False)
             
             if i == 0:
-                ax_g.set_title('Gabor', fontsize=20, pad=10)
+                ax_g.set_title('Fitted Gabor', fontsize=20, pad=10)
             saved_axes.append(ax_g)
         except Exception as e:
             print(f"Error loading image for {s}_{sc}_r{rid}: {e}")
@@ -127,7 +128,7 @@ def plot_mesi_vs_gabor_scatter(ax):
     ax.tick_params(axis='both', which='major', labelsize=18)
 
     ax.set_xlabel('MESI Response', fontsize=20)
-    ax.set_ylabel('Gabor Response', fontsize=20)
+    ax.set_ylabel('Optimal Gabor Response', fontsize=20)
 
     ax.set_xticks([0, 20, 40, 60, 80])
     ax.set_yticks([0, 20, 40, 60, 80])

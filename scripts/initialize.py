@@ -9,7 +9,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 OUTPUT_CSV = os.path.join(getattr(paths, 'DATA_DIR'), 'neuron_info.csv')
 PERFORMANCE_CSV = os.path.join(getattr(paths, 'PERFORMANCE_CSV'))

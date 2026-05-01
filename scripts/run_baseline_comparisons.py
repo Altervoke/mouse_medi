@@ -19,7 +19,7 @@ if project_root not in sys.path:
 if fnn_root not in sys.path:
     sys.path.append(fnn_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 from fnn import microns
 
 EXEC_ORDER = os.path.join(getattr(paths, 'DATA_DIR'), 'execution_order.csv')

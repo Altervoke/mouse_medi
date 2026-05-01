@@ -16,7 +16,7 @@ if project_root not in sys.path:
 if fnn_root not in sys.path:
     sys.path.append(fnn_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 from fnn import microns
 
 INPUT_CSV = os.path.join(getattr(paths, 'DATA_DIR'), 'neuron_info.csv')

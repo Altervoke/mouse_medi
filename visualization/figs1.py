@@ -12,7 +12,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 def set_style():
     sns.set_style("white", {'axes.spines.top': False, 'axes.spines.right': False})
@@ -46,7 +46,7 @@ def plot_frames(fig, master_gs):
     examples = [
         ('V1', 'L4', 9, 3, 6900, os.path.join(paths.RESULTS_DIR, 'MEDI', 'V1', 'L4', '9_3_r6900.gif'), os.path.join(paths.RESULTS_DIR, 'MEDI_pixel', 'V1', 'L4', '9_3_r6900.gif')),
         ('LM', 'L5', 5, 6, 6184, os.path.join(paths.RESULTS_DIR, 'MEDI', 'LM', 'L5', '5_6_r6184.gif'), os.path.join(paths.RESULTS_DIR, 'MEDI_pixel', 'LM', 'L5', '5_6_r6184.gif')),
-        ('RL', 'L5', 6, 2, 6139, os.path.join(paths.RESULTS_DIR, 'MEDI', 'RL', 'L5', '6_2_r6139.gif'), os.path.join(paths.RESULTS_DIR, 'MEDI_pixel', 'RL', 'L5', '6_2_r6139.gif')),
+        ('RL', 'L4', 5, 7, 3838, os.path.join(paths.RESULTS_DIR, 'MEDI', 'RL', 'L4', '5_7_r3838.gif'), os.path.join(paths.RESULTS_DIR, 'MEDI_pixel', 'RL', 'L4', '5_7_r3838.gif')),
         ('AL', 'L23', 6, 7, 4143, os.path.join(paths.RESULTS_DIR, 'MEDI', 'AL', 'L23', '6_7_r4143.gif'), os.path.join(paths.RESULTS_DIR, 'MEDI_pixel', 'AL', 'L23', '6_7_r4143.gif')),
     ]
     frames_to_plot = list(range(22, 38, 2))

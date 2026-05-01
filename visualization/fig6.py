@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 import warnings
 warnings.filterwarnings('ignore')

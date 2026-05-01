@@ -13,7 +13,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 def set_style():
     sns.set_style("white", {'axes.spines.top': False, 'axes.spines.right': False})
@@ -47,7 +47,7 @@ def plot_frames(fig, outer_gs, units_df, fnn_resp, fnn_stim):
     examples = [
         ('V1', 'L4', 9, 3, 6900, os.path.join(paths.RESULTS_DIR, 'MEDI', 'V1', 'L4', '9_3_r6900.gif')),
         ('LM', 'L5', 5, 6, 6184, os.path.join(paths.RESULTS_DIR, 'MEDI', 'LM', 'L5', '5_6_r6184.gif')),
-        ('RL', 'L5', 6, 2, 6139, os.path.join(paths.RESULTS_DIR, 'MEDI', 'RL', 'L5', '6_2_r6139.gif')),
+        ('RL', 'L4', 5, 7, 3838, os.path.join(paths.RESULTS_DIR, 'MEDI', 'RL', 'L4', '5_7_r3838.gif')),
         ('AL', 'L23', 6, 7, 4143, os.path.join(paths.RESULTS_DIR, 'MEDI', 'AL', 'L23', '6_7_r4143.gif')),
     ]
     frames_to_plot = list(range(22, 38, 2))
@@ -203,7 +203,7 @@ def plot_baseline_density_all(ax):
     ax.set_xlim(0, 20)
     ax.set_title('')
     ax.set_ylabel('')
-    ax.set_xlabel('Response Gain Ratio (MEDI / Baseline)', fontsize=18, labelpad=10)
+    ax.set_xlabel('Response Gain Ratio', fontsize=18, labelpad=10)
     ax.tick_params(axis='x', labelsize=14)
     import matplotlib.ticker as ticker
     ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, pos: f"{int(x)}"))

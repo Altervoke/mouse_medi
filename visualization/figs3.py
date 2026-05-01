@@ -12,7 +12,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
+from mouse_medi.config import paths
 
 def set_style():
     sns.set_style("white", {'axes.spines.top': False, 'axes.spines.right': False})
@@ -79,7 +79,7 @@ def generate_figs3():
         ax.set_xticks([0, 1, 4, 8, 12, 16, 20])
         ax.set_xlim(0, 20)
         
-        ax.set_xlabel('Activation Gain Ratio (MEDI / Baseline)', fontsize=16, labelpad=10)
+        ax.set_xlabel('Response Gain Ratio', fontsize=16, labelpad=10)
         ax.set_ylabel('')
         
         ax.text(-0.05, 1.05, letters[i], transform=ax.transAxes, **label_font)

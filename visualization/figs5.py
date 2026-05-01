@@ -1,9 +1,11 @@
 import os
 import sys
+import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from PIL import Image, ImageSequence
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -11,13 +13,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
-
-def get_star(p):
-    if p < 0.001: return '***'
-    elif p < 0.01: return '**'
-    elif p < 0.05: return '*'
-    return 'ns'
+from mouse_medi.config import paths
 
 def set_style():
     sns.set_style("white", {'axes.spines.top': False, 'axes.spines.right': False})
@@ -26,70 +22,80 @@ def set_style():
         'font.serif': ['Times New Roman', 'DejaVu Serif'],
         'pdf.fonttype': 42,
         'ps.fonttype': 42,
-        'font.size': 20,
-        'axes.labelsize': 26,
-        'axes.titlesize': 26,
-        'axes.linewidth': 2.0,
-        'xtick.labelsize': 26,
-        'ytick.labelsize': 26,
-        'xtick.major.width': 2.0,
-        'ytick.major.width': 2.0,
-        'legend.fontsize': 20,
+        'font.size': 14,
+        'axes.labelsize': 14,
+        'axes.titlesize': 14,
+        'axes.linewidth': 1.0,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
+        'xtick.major.width': 1.0,
+        'ytick.major.width': 1.0,
+        'legend.fontsize': 12,
+        'legend.title_fontsize': 12,
+        'legend.frameon': False, 
+        'lines.linewidth': 1.5,
+        'lines.markersize': 4,
         'figure.dpi': 300,
         'savefig.dpi': 300,
         'savefig.bbox': 'tight',  
         'savefig.pad_inches': 0.1
     })
 
+def plot_frames(fig, master_gs):
+    medi_df = pd.read_csv(os.path.join(paths.DATA_DIR, 'medi_features.csv'))
+
+    manual_selections = [
+        ('Low', 9, 3, 4641, os.path.join(paths.RESULTS_DIR, 'MEDI', 'V1', 'L4', '9_3_r4641.gif')),
+        ('Medium', 7, 3, 8304, os.path.join(paths.RESULTS_DIR, 'MEDI', 'V1', 'L5', '7_3_r8304.gif')),
+        ('High', 7, 3, 6785, os.path.join(paths.RESULTS_DIR, 'MEDI', 'RL', 'L5', '7_3_r6785.gif')),
+    ]
+    
+    frames_to_plot = list(range(22, 38, 2))
+    n_frames = len(frames_to_plot)
+    
+    outer_gs = gridspec.GridSpecFromSubplotSpec(3, 1, subplot_spec=master_gs, hspace=0)
+    
+    for row_idx, (level, sess, scan, readout_id, medi_path) in enumerate(manual_selections):
+        match = medi_df[(medi_df['session'] == sess) & (medi_df['scan_idx'] == scan) & (medi_df['readout_id'] == readout_id)]
+        stii_val = match.iloc[0]['STII'] if not match.empty else np.nan
+        medi_frames = []
+        if os.path.exists(medi_path):
+            with Image.open(medi_path) as img:
+                frs = [np.array(frame.copy().convert('L')) for frame in ImageSequence.Iterator(img)]
+                if len(frs) >= max(frames_to_plot):
+                    for f_idx in frames_to_plot:
+                        medi_frames.append(frs[min(f_idx, len(frs)-1)])
+        
+        if not medi_frames:
+            medi_frames = [np.zeros((144, 256))] * n_frames
+
+        medi_strip = np.concatenate(medi_frames, axis=1)
+        
+        ax_medi = fig.add_subplot(outer_gs[row_idx])
+        ax_medi.imshow(medi_strip, cmap='gray', vmin=0, vmax=255)
+        ax_medi.set_xticks([])
+        ax_medi.set_yticks([])
+        ax_medi.set_zorder(10)
+        
+        ax_medi.text(-0.02, 0.5, f"STII={stii_val:.2f}", transform=ax_medi.transAxes, ha='right', va='center', rotation=0, color='black', fontsize=20, clip_on=False)
+        
+        if row_idx == 0:
+            ax_medi.text(80, -20, 'Fr.', ha='right', va='bottom', fontsize=20, color='black', clip_on=False)
+            for i, f_val in enumerate(frames_to_plot):
+                ax_medi.text(i * 256 + 128, -20, f"{f_val+1}", ha='center', va='bottom', fontsize=20, color='black', clip_on=False)
+        
+        for spine in ax_medi.spines.values():
+            spine.set_visible(False)
+            
+
 def generate_figs5():
     set_style()
+    fig = plt.figure(figsize=(14, 5))
+    gs = gridspec.GridSpec(1, 1)
     
-    medi_df = pd.read_csv(os.path.join(paths.DATA_DIR, 'medi_features.csv'))
-    grat_df = pd.read_csv(os.path.join(paths.DATA_DIR, 'grating_features.csv'))
+    plot_frames(fig, gs[0, 0])
     
-    merged = pd.merge(medi_df, grat_df, on=['session', 'scan_idx', 'unit_id'], suffixes=('_medi', '_grat'))
-    
-    from scipy.stats import pearsonr
-    
-    metrics = ['gOSI', 'gDSI']
-    
-    plot_data = []
-    for metric in metrics:
-        col_medi = f"{metric}_medi"
-        col_grat = f"{metric}_grat"
-        
-        valid = merged[[col_medi, col_grat]].dropna()
-        for val in valid[col_medi]: plot_data.append({'Metric': metric, 'Value': val, 'Method': 'MEDI'})
-        for val in valid[col_grat]: plot_data.append({'Metric': metric, 'Value': val, 'Method': 'Grating'})
-    
-    fig = plt.figure(figsize=(32, 8))
-    gs = gridspec.GridSpec(1, 4, wspace=0.35)
-
-    def plot_scatter(ax, metric_base, letter):
-        col_medi, col_grat = f"{metric_base}_medi", f"{metric_base}_grat"
-        clean = merged[[col_grat, col_medi]].dropna()
-        sns.regplot(data=clean, x=col_grat, y=col_medi, ax=ax, scatter_kws={'alpha': 0.3, 's': 10, 'color': 'teal'}, line_kws={'color': 'black', 'linewidth': 3.5})
-        r, _ = pearsonr(clean[col_grat], clean[col_medi])
-        ax.text(0.05, 0.95, f'r = {r:.2f}', transform=ax.transAxes, va='top', fontsize=24, bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
-        ax.set_xlabel(f"Grating {metric_base}", labelpad=12, fontsize=28)
-        ax.set_ylabel(f"MEDI {metric_base}", labelpad=12, fontsize=28)
-        ax.tick_params(axis='both', pad=8)
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.set_box_aspect(1)
-        ax.set_xticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-        ax.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
-        ax.tick_params(axis='both', which='major', labelsize=24)
-        ax.set_title(f"{metric_base}", pad=20, fontsize=28)
-        sns.despine(ax=ax)
-        ax.text(-0.18, 1.05, letter, transform=ax.transAxes, fontsize=38, fontweight='bold', va='bottom', ha='right')
-        ax.tick_params(axis='both', which='major', direction='out', length=6, width=2, bottom=True, left=True)
-
-    plot_scatter(fig.add_subplot(gs[0]), 'gOSI', 'a')
-    plot_scatter(fig.add_subplot(gs[1]), 'gDSI', 'b')
-
     out_path = os.path.join(paths.FIGURES_DIR, 'figs5.pdf')
-    plt.subplots_adjust(top=0.9, bottom=0.1, left=0.08, right=0.98)
     plt.savefig(out_path, dpi=300)
     print(f"Appendix Figure S5 generated at {out_path}")
 

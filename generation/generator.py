@@ -12,8 +12,8 @@ if project_root not in sys.path:
 if fnn_root not in sys.path:
     sys.path.append(fnn_root)
 
-from medi_pipeline.config import paths
-from medi_pipeline.generation.optimizer import generate_medi, generate_mesi, generate_pixel_medi, generate_gabor
+from mouse_medi.config import paths
+from mouse_medi.generation.optimizer import generate_medi, generate_mesi, generate_pixel_medi, generate_gabor
 from fnn import microns
 
 SRC_DIR = getattr(paths, 'SRC_DIR')

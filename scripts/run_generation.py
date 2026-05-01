@@ -13,8 +13,8 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.config import paths
-from medi_pipeline.generation.generator import generate_mesi_func, generate_medi_func, load_foundation_model, load_vae
+from mouse_medi.config import paths
+from mouse_medi.generation.generator import generate_mesi_func, generate_medi_func, load_foundation_model, load_vae
 
 ORDER_CSV = os.path.join(getattr(paths, 'DATA_DIR'), 'execution_order.csv')
 NEURON_CSV = os.path.join(getattr(paths, 'DATA_DIR'), 'neuron_info.csv')

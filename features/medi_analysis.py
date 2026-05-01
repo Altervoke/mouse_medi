@@ -19,9 +19,9 @@ if project_root not in sys.path:
 if fnn_root not in sys.path:
     sys.path.append(fnn_root)
 
-from medi_pipeline.config import paths
-from medi_pipeline.features.grating_analysis import fit_tuning_curve, calculate_indices
-from medi_pipeline.features.sta_analysis import fit_2d_gaussian, calculate_ssi
+from mouse_medi.config import paths
+from mouse_medi.features.grating_analysis import fit_tuning_curve, calculate_indices
+from mouse_medi.features.sta_analysis import fit_2d_gaussian, calculate_ssi
 from fnn import microns
 
 RESULTS_MEDI_DIR = getattr(paths, 'RESULTS_MEDI_DIR')
