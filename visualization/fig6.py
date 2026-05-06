@@ -5,7 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import seaborn as sns
-from scipy.stats import ttest_ind, gaussian_kde
+from scipy.stats import ttest_ind, gaussian_kde, mannwhitneyu
+from statsmodels.stats.multitest import multipletests
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -24,13 +25,65 @@ def get_star(p):
     elif p < 0.05: return '*'
     return 'ns'
 
+def compute_significance_from_data(df_medi, df_grat, df_info):
+    merge_keys = ['session', 'scan_idx', 'readout_id']
+    if 'readout_id' not in df_medi.columns and 'unit_id' in df_medi.columns:
+        merge_keys = ['session', 'scan_idx', 'unit_id']
+        
+    d_medi = pd.merge(df_medi, df_info[merge_keys + ['brain_area']], on=merge_keys)
+    d_grat = pd.merge(df_grat, d_medi[merge_keys + ['brain_area']], on=merge_keys)
+    
+    areas = ['V1', 'LM', 'RL', 'AL']
+    metrics = ['TF', 'SF']
+    
+    data = {'TF': {'MEDI': {}, 'Grating': {}}, 'SF': {'MEDI': {}, 'Grating': {}}}
+    
+    p_values = []
+    keys = []
+    
+    for metric in metrics:
+        col_name = f'pref_{metric.lower()}'
+        for a1 in areas:
+            for a2 in areas:
+                if a1 == a2:
+                    continue
+                    
+                d1 = d_medi[d_medi['brain_area'] == a1][col_name].dropna()
+                d2 = d_medi[d_medi['brain_area'] == a2][col_name].dropna()
+                if len(d1) > 1 and len(d2) > 1:
+                    _, p_val = mannwhitneyu(d1, d2)
+                    p_values.append(p_val)
+                    keys.append((metric, 'MEDI', a1, a2))
+                else:
+                    data[metric]['MEDI'][(a1, a2)] = 'N/A'
+                    
+                g1 = d_grat[d_grat['brain_area'] == a1][col_name].dropna()
+                g2 = d_grat[d_grat['brain_area'] == a2][col_name].dropna()
+                if len(g1) > 1 and len(g2) > 1:
+                    _, p_val = mannwhitneyu(g1, g2)
+                    p_values.append(p_val)
+                    keys.append((metric, 'Grating', a1, a2))
+                else:
+                    data[metric]['Grating'][(a1, a2)] = 'N/A'
+                    
+    if p_values:
+        _, p_vals_fdr, _, _ = multipletests(p_values, method='fdr_bh')
+        for (metric, method, a1, a2), p_fdr in zip(keys, p_vals_fdr):
+            data[metric][method][(a1, a2)] = get_star(p_fdr)
+            
+    return data
+
 def generate_fig6():
     medi_features = pd.read_csv(os.path.join(paths.DATA_DIR, 'medi_features.csv'))
     grating_features = pd.read_csv(os.path.join(paths.DATA_DIR, 'grating_features.csv'))
     neuron_info = pd.read_csv(os.path.join(paths.DATA_DIR, 'neuron_info.csv'))
     
-    df = pd.merge(medi_features, grating_features, on=['session', 'scan_idx', 'unit_id'], how='inner', suffixes=('_medi', '_grating'))
-    df = pd.merge(df, neuron_info, on=['session', 'scan_idx', 'unit_id'], how='inner')
+    merge_keys = ['session', 'scan_idx', 'unit_id']
+    if 'readout_id' in medi_features.columns:
+        merge_keys = ['session', 'scan_idx', 'readout_id']
+        
+    df = pd.merge(medi_features, grating_features, on=merge_keys, how='inner', suffixes=('_medi', '_grating'))
+    df = pd.merge(df, neuron_info, on=merge_keys, how='inner')
     
     stii_col = 'STII' if 'STII' in df.columns else 'stii_snr_mask'
     df_stii = df.dropna(subset=[stii_col]).copy()
@@ -49,10 +102,11 @@ def generate_fig6():
         'legend.fontsize': 36
     })
     
-    fig = plt.figure(figsize=(32, 8.5))
-    gs = gridspec.GridSpec(1, 3, width_ratios=[1.4, 1.1, 1.1], wspace=0.45)
+    fig = plt.figure(figsize=(36, 16))
     
-    axA = fig.add_subplot(gs[0])
+    gs = gridspec.GridSpec(2, 3, width_ratios=[1.4, 1.1, 2.5], height_ratios=[1.0, 1.0], wspace=0.45, hspace=0.45)
+    
+    axA = fig.add_subplot(gs[0, 0])
     
     c_medi = "#a81fb4"
     sns.kdeplot(data=df_stii, x=stii_col, fill=True, color=c_medi, lw=2, ax=axA, alpha=0.4, bw_adjust=1.8)
@@ -80,7 +134,7 @@ def generate_fig6():
     layer_colors = sns.color_palette("Blues", 5)[2:5]
     color_layer = {'L2/3': layer_colors[0], 'L4': layer_colors[1], 'L5': layer_colors[2]}
     
-    axB = fig.add_subplot(gs[1])
+    axB = fig.add_subplot(gs[0, 1])
     area_order = ['V1', 'LM', 'RL', 'AL']
     filtered_area = df_stii[df_stii['brain_area'].isin(area_order)]
     
@@ -106,7 +160,6 @@ def generate_fig6():
             pvals_area.append(np.nan)
             groups.append((area_order[i], area_order[i+1]))
 
-    from statsmodels.stats.multitest import multipletests
     reject, p_corrected, _, _ = multipletests(pvals_area, method='fdr_bh')
 
     maxs_c = [filtered_area[filtered_area['brain_area'] == a][stii_col].max() for a in area_order]
@@ -125,7 +178,7 @@ def generate_fig6():
     axB.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     sns.despine(ax=axB)
     
-    axC = fig.add_subplot(gs[2], sharey=axB)
+    axC = fig.add_subplot(gs[1, 0])
     layer_order = ['L2/3', 'L4', 'L5']
     filtered_layer = df_stii[df_stii['layer'].isin(layer_order)]
     
@@ -176,34 +229,91 @@ def generate_fig6():
     axC.set_yticks([0.0, 0.2, 0.4, 0.6, 0.8, 1.0])
     sns.despine(ax=axC)
     
-    plt.tight_layout(pad=1.0)
-    plt.subplots_adjust(bottom=0.22, top=0.85, left=0.055, right=0.98)
+    axD = fig.add_subplot(gs[:, 2])
     
+    areas = ['V1', 'LM', 'RL', 'AL']
+    medi_tf_mean, medi_tf_sem, grat_tf_mean, grat_tf_sem = [], [], [], []
+    medi_sf_mean, medi_sf_sem, grat_sf_mean, grat_sf_sem = [], [], [], []
+    
+    df_medi_clean = pd.merge(medi_features, neuron_info[merge_keys + ['brain_area']], on=merge_keys)
+    df_grat_clean = pd.merge(grating_features, df_medi_clean[merge_keys + ['brain_area']], on=merge_keys)
+    
+    for area in areas:
+        m_a = df_medi_clean[df_medi_clean['brain_area'] == area]
+        medi_tf_mean.append(m_a['pref_tf'].mean()); medi_tf_sem.append(m_a['pref_tf'].sem())
+        medi_sf_mean.append(m_a['pref_sf'].mean()); medi_sf_sem.append(m_a['pref_sf'].sem())
+        
+        g_a = df_grat_clean[df_grat_clean['brain_area'] == area]
+        grat_tf_mean.append(g_a['pref_tf'].mean()); grat_tf_sem.append(g_a['pref_tf'].sem())
+        grat_sf_mean.append(g_a['pref_sf'].mean()); grat_sf_sem.append(g_a['pref_sf'].sem())
+    
+    x_positions = np.arange(len(areas))
+    c_m, c_g = '#1f77b4', '#2ca02c'
+    axD.errorbar(x_positions, medi_tf_mean, yerr=medi_tf_sem, color=c_m, marker='o', linestyle='-', linewidth=4, label='MEDI TF', capsize=12, capthick=4, elinewidth=4, markersize=12)
+    axD.errorbar(x_positions, grat_tf_mean, yerr=grat_tf_sem, color=c_g, marker='o', linestyle='-', linewidth=4, label='Grating TF', capsize=12, capthick=4, elinewidth=4, markersize=12)
+    axD.set_ylabel('Mean Preferred TF (Hz)', color='black', fontsize=34, labelpad=20)
+    axD.set_xticks(x_positions); axD.set_xticklabels(areas, fontsize=34)
+    axD.margins(y=0.45); axD.spines['top'].set_visible(False)
+    
+    axD_sf = axD.twinx()
+    axD_sf.errorbar(x_positions, medi_sf_mean, yerr=medi_sf_sem, color=c_m, marker='s', linestyle='--', linewidth=4, label='MEDI SF', capsize=12, capthick=4, elinewidth=4, markersize=12)
+    axD_sf.errorbar(x_positions, grat_sf_mean, yerr=grat_sf_sem, color=c_g, marker='s', linestyle='--', linewidth=4, label='Grating SF', capsize=12, capthick=4, elinewidth=4, markersize=12)
+    axD_sf.set_ylabel('Mean Preferred SF (cpp)', color='black', fontsize=34, labelpad=20)
+    axD_sf.margins(y=0.45); axD_sf.spines['top'].set_visible(False)
+    
+    h1, l1 = axD.get_legend_handles_labels()
+    h2, l2 = axD_sf.get_legend_handles_labels()
+    axD.legend(h1+h2, l1+l2, bbox_to_anchor=(0.1, 1.0), loc='upper left', frameon=False, ncol=2, fontsize=32)
+    
+    axE = fig.add_subplot(gs[1, 1])
+    sig_data = compute_significance_from_data(medi_features, grating_features, neuron_info)
+    axE.set_xlim(0, len(areas)); axE.set_ylim(0, len(areas)); axE.invert_yaxis()
+    axE.set_xticks(np.arange(len(areas)) + 0.5); axE.set_yticks(np.arange(len(areas)) + 0.5)
+    axE.set_xticklabels(areas); axE.set_yticklabels(areas)
+    axE.xaxis.tick_top()
+    axE.tick_params(axis='both', which='both', length=0, pad=12)
+    for i in range(len(areas) + 1):
+        axE.axhline(i, color='black', linewidth=0.5); axE.axvline(i, color='black', linewidth=0.5)
+        
+    for i, a1 in enumerate(areas):
+        for j, a2 in enumerate(areas):
+            if i == j: axE.fill_between([j, j+1], [i, i], [i+1, i+1], color='#F0F0F0'); continue
+            
+            metric = 'TF' if i > j else 'SF'
+            sym_m = sig_data.get(metric, {}).get('MEDI', {}).get((a1, a2), 'ns')
+            sym_g = sig_data.get(metric, {}).get('Grating', {}).get((a1, a2), 'ns')
+            
+            axE.plot([j+1, j], [i, i+1], color='black', linewidth=0.5)
+            axE.text(j + 0.3, i + 0.3, sym_m, ha='center', va='center', color=c_m, fontsize=28)
+            axE.text(j + 0.7, i + 0.8, sym_g, ha='center', va='center', color=c_g, fontsize=28)
+                
+    axE.text(0.5, -0.05, "TF Significance", transform=axE.transAxes, ha='center', va='top', fontsize=32, color='black')
+    axE.text(1.05, 0.5, "SF Significance", transform=axE.transAxes, ha='left', va='center', rotation=-90, fontsize=32, color='black')
+    axE.set_box_aspect(0.9)
+    for spine in axE.spines.values(): spine.set_visible(False)
+    
+    plt.tight_layout(pad=3.0)
     fig.canvas.draw()
     
-    posA = axA.get_position()
-    posB = axB.get_position()
-    posC = axC.get_position()
+    lbl_font = {'fontsize': 50, 'fontweight': 'bold', 'va': 'bottom', 'ha': 'right'}
     
-    posB.y0 -= 0.03
-    posB.y1 -= 0.03
-    axB.set_position(posB)
+    _posA = axA.get_position()
+    _posB = axB.get_position()
+    _posC = axC.get_position()
+    _posD = axD.get_position()
+    _posE = axE.get_position()
     
-    posC.y0 -= 0.02
-    posC.y1 -= 0.02
-    axC.set_position(posC)
+    y_top = max(_posA.y1, _posB.y1, _posD.y1) + 0.04
+    fig.text(_posA.x0 - 0.032, y_top, 'a', **lbl_font)
+    fig.text(_posB.x0 - 0.032, y_top, 'b', **lbl_font)
+    fig.text(_posD.x0 - 0.032, y_top, 'd', **lbl_font)
     
-    posA = axA.get_position()
-    posB = axB.get_position()
-    posC = axC.get_position()
-    
-    y_title = max(posA.y1, posB.y1, posC.y1) + 0.04
-    fig.text(posA.x0 - 0.035, y_title, 'a', fontsize=50, fontweight='bold', va='bottom', ha='right')
-    fig.text(posB.x0 - 0.035, y_title, 'b', fontsize=50, fontweight='bold', va='bottom', ha='right')
-    fig.text(posC.x0 - 0.035, y_title, 'c', fontsize=50, fontweight='bold', va='bottom', ha='right')
+    y_bot = max(_posC.y1, _posE.y1) + 0.01
+    fig.text(_posC.x0 - 0.032, y_bot, 'c', **lbl_font)
+    fig.text(_posE.x0 - 0.032, y_bot, 'e', **lbl_font)
     
     out_path = os.path.join(paths.FIGURES_DIR, 'fig6.pdf')
-    plt.savefig(out_path, dpi=300)
+    plt.savefig(out_path, dpi=300, bbox_inches='tight')
     print(f"Figure 6 generated at {out_path}")
 
 if __name__ == "__main__":

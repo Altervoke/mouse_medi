@@ -7,10 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import imageio
 import cv2
-from scipy.stats import mannwhitneyu
-from statsmodels.stats.multitest import multipletests
 from scipy.interpolate import CubicSpline
-from scipy.stats import bootstrap
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.abspath(os.path.join(current_dir, '../..'))
@@ -37,57 +34,6 @@ def load_medi_video(video_path):
         return np.stack(frames).astype(np.float32) / 255.0
     except Exception as e:
         return None
-
-def get_star(p):
-    if p < 0.001: return '***'
-    elif p < 0.01: return '**'
-    elif p < 0.05: return '*'
-    return 'ns'
-
-def compute_significance_from_data(df_medi, df_grat, df_info):
-    merge_keys = ['session', 'scan_idx', 'readout_id']
-    d_medi = pd.merge(df_medi, df_info[merge_keys + ['brain_area']], on=merge_keys)
-    d_grat = pd.merge(df_grat, d_medi[merge_keys + ['brain_area']], on=merge_keys)
-    
-    areas = ['V1', 'LM', 'RL', 'AL']
-    metrics = ['TF', 'SF']
-    
-    data = {'TF': {'MEDI': {}, 'Grating': {}}, 'SF': {'MEDI': {}, 'Grating': {}}}
-    
-    p_values = []
-    keys = []
-    
-    for metric in metrics:
-        col_name = f'pref_{metric.lower()}'
-        for a1 in areas:
-            for a2 in areas:
-                if a1 == a2:
-                    continue
-                    
-                d1 = d_medi[d_medi['brain_area'] == a1][col_name].dropna()
-                d2 = d_medi[d_medi['brain_area'] == a2][col_name].dropna()
-                if len(d1) > 1 and len(d2) > 1:
-                    _, p_val = mannwhitneyu(d1, d2)
-                    p_values.append(p_val)
-                    keys.append((metric, 'MEDI', a1, a2))
-                else:
-                    data[metric]['MEDI'][(a1, a2)] = 'N/A'
-                    
-                g1 = d_grat[d_grat['brain_area'] == a1][col_name].dropna()
-                g2 = d_grat[d_grat['brain_area'] == a2][col_name].dropna()
-                if len(g1) > 1 and len(g2) > 1:
-                    _, p_val = mannwhitneyu(g1, g2)
-                    p_values.append(p_val)
-                    keys.append((metric, 'Grating', a1, a2))
-                else:
-                    data[metric]['Grating'][(a1, a2)] = 'N/A'
-                    
-    if p_values:
-        _, p_vals_fdr, _, _ = multipletests(p_values, method='fdr_bh')
-        for (metric, method, a1, a2), p_fdr in zip(keys, p_vals_fdr):
-            data[metric][method][(a1, a2)] = get_star(p_fdr)
-            
-    return data
 
 def generate_fig4():
     set_style()
@@ -124,7 +70,6 @@ def generate_fig4():
             break
         results.append({
             'threshold': thr,
-            'n': len(sub),
             'corr': sub['curve_corr'].values,
             'tf_log2': sub['diff_tf_log2'].values,
             'sf_log2': sub['diff_sf_log2'].values,
@@ -263,9 +208,9 @@ def generate_fig4():
                 cell.set_facecolor('#FAFAFA' if row % 2 == 1 else '#FFFFFF')
     
     plt.rcParams.update({'font.size': 22, 'axes.labelsize': 24, 'axes.titlesize': 26})
-    fig = plt.figure(figsize=(26, 18))
+    fig = plt.figure(figsize=(26, 12))
     
-    gs = gridspec.GridSpec(2, 1, height_ratios=[1.2, 2.2], hspace=0.45)
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1.2, 1.0], hspace=0.65)
     
     gs_row0 = gridspec.GridSpecFromSubplotSpec(1, 4, subplot_spec=gs[0], width_ratios=[1.0, 0.8, 1.0, 0.8], wspace=0.35)
     
@@ -277,77 +222,16 @@ def generate_fig4():
     ax_t2 = fig.add_subplot(gs_row0[3])
     plot_neuron_example(ax_p2, ax_t2, 6, 7, 4143)
     
-    gs_row1 = gridspec.GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[1], width_ratios=[0.95, 0.95, 1.6], wspace=0.45)
+    gs_row1 = gridspec.GridSpecFromSubplotSpec(1, 3, subplot_spec=gs[1], wspace=0.35)
     
-    ax_g = fig.add_subplot(gs_row1[2])
+    ax_c = fig.add_subplot(gs_row1[0])
+    ax_c.fill_between(thr_vals, corr_lower, corr_upper, color='#CCB974', alpha=0.2)
+    ax_c.plot(thr_vals, corr_medians, color='#CCB974', linewidth=5, label='Median Corr')
+    ax_c.set_xlabel("Threshold (gOSI & gDSI)")
+    ax_c.set_ylabel("Median Correlation")
+    ax_c.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_c.set_yticks([0.5, 0.6, 0.7, 0.8])
     
-    df_medi = pd.merge(df_MEDI_raw, df_info[merge_keys + ['brain_area']], on=merge_keys)
-    df_grat = pd.merge(df_grating_raw, df_medi[merge_keys + ['brain_area']], on=merge_keys) 
-    areas = ['V1', 'LM', 'RL', 'AL']
-    medi_tf_mean, medi_tf_sem, grat_tf_mean, grat_tf_sem = [], [], [], []
-    medi_sf_mean, medi_sf_sem, grat_sf_mean, grat_sf_sem = [], [], [], []
-    for area in areas:
-        m_a = df_medi[df_medi['brain_area'] == area]
-        medi_tf_mean.append(m_a['pref_tf'].mean()); medi_tf_sem.append(m_a['pref_tf'].sem())
-        medi_sf_mean.append(m_a['pref_sf'].mean()); medi_sf_sem.append(m_a['pref_sf'].sem())
-        
-        g_a = df_grat[df_grat['brain_area'] == area]
-        grat_tf_mean.append(g_a['pref_tf'].mean()); grat_tf_sem.append(g_a['pref_tf'].sem())
-        grat_sf_mean.append(g_a['pref_sf'].mean()); grat_sf_sem.append(g_a['pref_sf'].sem())
-    
-    x_positions = np.arange(len(areas))
-    c_medi, c_grat = '#1f77b4', '#2ca02c'
-    ax_g.errorbar(x_positions, medi_tf_mean, yerr=medi_tf_sem, color=c_medi, marker='o', linestyle='-', linewidth=2, label='MEDI TF', capsize=8, capthick=2.5, elinewidth=2.5, markersize=8)
-    ax_g.errorbar(x_positions, grat_tf_mean, yerr=grat_tf_sem, color=c_grat, marker='o', linestyle='-', linewidth=2, label='Grating TF', capsize=8, capthick=2.5, elinewidth=2.5, markersize=8)
-    ax_g.set_ylabel('Mean Preferred TF (Hz)', color='black', fontsize=24, labelpad=20)
-    ax_g.set_xticks(x_positions); ax_g.set_xticklabels(areas, fontsize=24)
-    ax_g.margins(y=0.45); ax_g.spines['top'].set_visible(False)
-    
-    ax_e_sf = ax_g.twinx()
-    ax_e_sf.errorbar(x_positions, medi_sf_mean, yerr=medi_sf_sem, color=c_medi, marker='s', linestyle='--', linewidth=2, label='MEDI SF', capsize=8, capthick=2.5, elinewidth=2.5, markersize=8)
-    ax_e_sf.errorbar(x_positions, grat_sf_mean, yerr=grat_sf_sem, color=c_grat, marker='s', linestyle='--', linewidth=2, label='Grating SF', capsize=8, capthick=2.5, elinewidth=2.5, markersize=8)
-    ax_e_sf.set_ylabel('Mean Preferred SF (cpp)', color='black', fontsize=24, labelpad=20)
-    ax_e_sf.margins(y=0.45); ax_e_sf.spines['top'].set_visible(False)
-    
-    h1, l1 = ax_g.get_legend_handles_labels()
-    h2, l2 = ax_e_sf.get_legend_handles_labels()
-    ax_g.legend(h1+h2, l1+l2, bbox_to_anchor=(0.1, 1.0), loc='upper left', frameon=False, ncol=2, fontsize=20)
-    pos = ax_g.get_position()
-    ax_g.set_position([pos.x0 - 0.02, pos.y0, pos.width, pos.height])
-
-    gs_mid = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_row1[1], hspace=0.45, height_ratios=[1.0, 1.3])
-    gs_left = gridspec.GridSpecFromSubplotSpec(2, 1, subplot_spec=gs_row1[0], hspace=0.55)
-    
-    ax_f = fig.add_subplot(gs_mid[1])
-    sig_data = compute_significance_from_data(df_MEDI_raw, df_grating_raw, df_info)
-    ax_f.set_xlim(0, len(areas)); ax_f.set_ylim(0, len(areas)); ax_f.invert_yaxis()
-    ax_f.set_xticks(np.arange(len(areas)) + 0.5); ax_f.set_yticks(np.arange(len(areas)) + 0.5)
-    ax_f.set_xticklabels(areas); ax_f.set_yticklabels(areas)
-    ax_f.xaxis.tick_top()
-    ax_f.tick_params(axis='both', which='both', length=0, pad=12)
-    for i in range(len(areas) + 1):
-        ax_f.axhline(i, color='black', linewidth=0.5); ax_f.axvline(i, color='black', linewidth=0.5)
-        
-    for i, a1 in enumerate(areas):
-        for j, a2 in enumerate(areas):
-            if i == j: ax_f.fill_between([j, j+1], [i, i], [i+1, i+1], color='#F0F0F0'); continue
-            
-            metric = 'TF' if i > j else 'SF'
-            sym_m = sig_data.get(metric, {}).get('MEDI', {}).get((a1, a2), 'ns')
-            sym_g = sig_data.get(metric, {}).get('Grating', {}).get((a1, a2), 'ns')
-            
-            ax_f.plot([j+1, j], [i, i+1], color='black', linewidth=0.5)
-            ax_f.text(j + 0.3, i + 0.3, sym_m, ha='center', va='center', color=c_medi, fontsize=22)
-            ax_f.text(j + 0.7, i + 0.7, sym_g, ha='center', va='center', color=c_grat, fontsize=22)
-                
-    ax_f.text(0.5, -0.05, "TF Significance", transform=ax_f.transAxes, ha='center', va='top', fontsize=22, color='black')
-    ax_f.text(1.05, 0.5, "SF Significance", transform=ax_f.transAxes, ha='left', va='center', rotation=-90, fontsize=22, color='black')
-    ax_f.set_box_aspect(0.9)
-    for spine in ax_f.spines.values(): spine.set_visible(False)
-    pos = ax_f.get_position()
-    ax_f.set_position([pos.x0 - 0.015, pos.y0 - 0.01, pos.width, pos.height])
-
-    ax_d = fig.add_subplot(gs_mid[0])
+    ax_d = fig.add_subplot(gs_row1[1])
     ax_d.fill_between(thr_vals, tf_lower, tf_upper, color='#C44E52', alpha=0.2)
     ax_d.plot(thr_vals, tf_means, color='#C44E52', linewidth=5, label=r'Pref TF')
     ax_d.fill_between(thr_vals, sf_lower, sf_upper, color='#8172B3', alpha=0.2)
@@ -357,17 +241,8 @@ def generate_fig4():
     ax_d.margins(y=0.4)
     ax_d.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_d.set_yticks([0, 0.4, 0.8, 1.2, 1.6])
     ax_d.legend(bbox_to_anchor=(1.0, 1.15), loc='upper right', frameon=False)
-    pos = ax_d.get_position()
-    ax_d.set_position([pos.x0 - 0.02, pos.y0, pos.width, pos.height])
     
-    ax_c = fig.add_subplot(gs_left[0])
-    ax_c.fill_between(thr_vals, corr_lower, corr_upper, color='#CCB974', alpha=0.2)
-    ax_c.plot(thr_vals, corr_medians, color='#CCB974', linewidth=5, label='Median Corr')
-    ax_c.set_xlabel("Threshold (gOSI & gDSI)")
-    ax_c.set_ylabel("Median Correlation")
-    ax_c.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_c.set_yticks([0.5, 0.6, 0.7, 0.8])
-    
-    ax_e = fig.add_subplot(gs_left[1])
+    ax_e = fig.add_subplot(gs_row1[2])
     ax_e.fill_between(thr_vals, ori_lower, ori_upper, color='#FF8C00', alpha=0.2)
     ax_e.plot(thr_vals, ori_medians, color='#FF8C00', linewidth=5, label=r'Pref Ori')
     ax_e.fill_between(thr_vals, dir_lower, dir_upper, color='#00CED1', alpha=0.2)
@@ -375,7 +250,7 @@ def generate_fig4():
     ax_e.set_xlabel("Threshold (gOSI & gDSI)")
     ax_e.set_ylabel(r"Median Diff. (deg)")
     ax_e.set_xticks([0.0, 0.2, 0.4, 0.6]); ax_e.set_yticks([0, 10, 20, 30, 40, 50])
-    ax_e.legend(bbox_to_anchor=(1.1, 1.05), loc='upper right', frameon=False)
+    ax_e.legend(bbox_to_anchor=(1.0, 1.15), loc='upper right', frameon=False)
         
     for ax in [ax_d, ax_c, ax_e]:
         ax.spines['top'].set_visible(False)
@@ -390,14 +265,10 @@ def generate_fig4():
     fig.text(ax_p1.get_position().x0 - 0.02, y_row0, 'a', **lbl_font)
     fig.text(ax_p2.get_position().x0 - 0.02, y_row0, 'b', **lbl_font)
     
-    y_row1_top = ax_c.get_position().y1 + 0.04
-    y_row1_bot = ax_e.get_position().y1 + 0.03
-    
-    fig.text(ax_c.get_position().x0 - 0.025, y_row1_top, 'c', **lbl_font)
-    fig.text(ax_e.get_position().x0 - 0.025, y_row1_bot, 'e', **lbl_font)
-    fig.text(ax_d.get_position().x0 - 0.025, y_row1_top, 'd', **lbl_font)
-    fig.text(ax_f.get_position().x0 - 0.015, y_row1_bot, 'g', **lbl_font)
-    fig.text(ax_g.get_position().x0 - 0.035, ax_g.get_position().y1 + 0.04, 'f', **lbl_font)
+    y_row1 = ax_c.get_position().y1 + 0.04
+    fig.text(ax_c.get_position().x0 - 0.04, y_row1, 'c', **lbl_font)
+    fig.text(ax_d.get_position().x0 - 0.04, y_row1, 'd', **lbl_font)
+    fig.text(ax_e.get_position().x0 - 0.04, y_row1, 'e', **lbl_font)
     
     out_path = os.path.join(paths.FIGURES_DIR, 'fig4.pdf')
     plt.savefig(out_path, dpi=300, bbox_inches='tight')

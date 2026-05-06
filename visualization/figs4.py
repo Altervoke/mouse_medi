@@ -21,11 +21,11 @@ def set_style():
         'pdf.fonttype': 42,
         'ps.fonttype': 42,
         'font.size': 20,
-        'axes.labelsize': 16,
-        'axes.titlesize': 16,
-        'axes.linewidth': 2.0,
-        'xtick.labelsize': 14,
-        'ytick.labelsize': 14,
+        'axes.labelsize': 9,
+        'axes.titlesize': 9,
+        'axes.linewidth': 1.0,
+        'xtick.labelsize': 8,
+        'ytick.labelsize': 8,
         'xtick.major.width': 2.0,
         'ytick.major.width': 2.0,
         'legend.fontsize': 20,
@@ -62,14 +62,14 @@ def generate_figs4():
     thr_vals = [r['threshold'] for r in results]
     counts = [r['n'] for r in results]
     
-    fig, ax = plt.subplots(figsize=(6, 4))
+    fig, ax = plt.subplots(figsize=(4.2, 2.8))
     
-    ax.plot(thr_vals, counts, color='#3498db', linewidth=4)
+    ax.plot(thr_vals, counts, color='#3498db', linewidth=2)
     ax.set_xlabel("Threshold (gOSI & gDSI)")
     ax.set_ylabel("Neuron Count")
     ax.set_xticks([0.0, 0.2, 0.4, 0.6])
     ax.set_ylim(0, max(counts) * 1.1)
-    ax.tick_params(axis='both', which='major', direction='out', length=6, width=2, bottom=True, left=True)
+    ax.tick_params(axis='both', which='major', direction='out', length=3, width=1, bottom=True, left=True)
     
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)

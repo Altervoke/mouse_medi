@@ -22,11 +22,11 @@ def set_style():
         'pdf.fonttype': 42,
         'ps.fonttype': 42,
         'font.size': 20,
-        'axes.labelsize': 26,
-        'axes.titlesize': 26,
+        'axes.labelsize': 20,
+        'axes.titlesize': 20,
         'axes.linewidth': 1.0,
-        'xtick.labelsize': 26,
-        'ytick.labelsize': 26,
+        'xtick.labelsize': 20,
+        'ytick.labelsize': 20,
         'xtick.major.width': 1.0,
         'ytick.major.width': 1.0,
         'legend.fontsize': 20,
@@ -88,8 +88,8 @@ def generate_figs2():
         ("gDSI", 'gDSI', 'd', (0, 1))
     ]
     
-    fig = plt.figure(figsize=(8, 10))
-    gs = gridspec.GridSpec(2, 2, wspace=0.3, hspace=0.4)
+    fig = plt.figure(figsize=(5.6, 7.0))
+    gs = gridspec.GridSpec(2, 2, wspace=0.3, hspace=0.5)
     
     def plot_scatter_panel(ax, col, title, letter, xlim=None):
         df_ref = conditions["MEDI (default)"].set_index(KEY)
@@ -146,19 +146,19 @@ def generate_figs2():
 
             y_pos = 0.95
             for lbl, r_val in r_values.items():
-                ax.text(0.05, y_pos, rf"$\rho_c$ = {r_val:.3f}", transform=ax.transAxes, color=COLORS[lbl], fontsize=12, va='top', ha='left', fontweight=500)
+                ax.text(0.05, y_pos, rf"$\rho_c$ = {r_val:.3f}", transform=ax.transAxes, color=COLORS[lbl], fontsize=8, va='top', ha='left', fontweight=500)
                 y_pos -= 0.08
 
-        ax.set_title(title, fontsize=14, pad=12)
-        ax.tick_params(labelsize=12)
+        ax.set_title(title, fontsize=10, pad=12)
+        ax.tick_params(labelsize=8)
 
-        ax.set_xlabel(f"Default {title}", labelpad=12, fontsize=14)
-        ax.set_ylabel(f"Variants {title}", labelpad=12, fontsize=14)
+        ax.set_xlabel(f"Default {title}", labelpad=12, fontsize=10)
+        ax.set_ylabel(f"Variants {title}", labelpad=12, fontsize=10)
 
         ax.set_box_aspect(1)
         sns.despine(ax=ax)
         
-        ax.text(-0.18, 1.05, letter, transform=ax.transAxes, fontsize=20, fontweight='bold', va='bottom', ha='right')
+        ax.text(-0.22, 1.05, letter, transform=ax.transAxes, fontsize=15, fontweight='bold', va='bottom', ha='right')
         
         ax.tick_params(axis='both', which='major', direction='out', length=3, width=1, bottom=True, left=True)
 
@@ -173,7 +173,7 @@ def generate_figs2():
     fig.legend(handles, [l for l in conditions if l != "MEDI (default)"],
                loc="lower center", ncol=3,
                bbox_to_anchor=(0.5, 0.02),
-               fontsize=12, frameon=False)
+               fontsize=8, frameon=False)
 
     out_path = os.path.join(paths.FIGURES_DIR, 'figs2.pdf')
     plt.subplots_adjust(top=0.92, bottom=0.18, left=0.08, right=0.98)

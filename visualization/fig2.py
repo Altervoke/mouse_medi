@@ -143,40 +143,36 @@ def generate_fig2():
     fig = plt.figure(figsize=(22, 6))
     gs = gridspec.GridSpec(1, 3, width_ratios=[1.2, 1, 1.2], wspace=0.35)
 
-    ax_dens = fig.add_subplot(gs[0])
+    saved_axes, ax_first_example = plot_mesi_gabor_examples(fig, gs[0])
+
+    ax_dens = fig.add_subplot(gs[1])
     plot_r2_density(ax_dens)
-    
-    all_axes_b, ax_b_img = plot_mesi_gabor_examples(fig, gs[1])
 
     ax_scatter = fig.add_subplot(gs[2])
     plot_mesi_vs_gabor_scatter(ax_scatter)
     ax_scatter.set_box_aspect(1)
-    
+
     plt.tight_layout()
     fig.canvas.draw()
-    
+
     delta_x = 0.018
-    for ax in all_axes_b:
+    for ax in saved_axes:
         pos = ax.get_position()
         new_x0 = pos.x0 + delta_x
         new_x1 = pos.x1 + delta_x
         if new_x1 < 0.95:
             ax.set_position([new_x0, pos.y0, pos.width, pos.height])
-    
+
     lbl_font = {'fontsize': 28, 'fontweight': 'bold', 'va': 'bottom', 'ha': 'right'}
-    
-    pos_a = ax_dens.get_position()
-    if ax_b_img:
-        pos_b = ax_b_img.get_position()
-    else:
-        temp_ax = fig.add_subplot(gs[1]); pos_b = temp_ax.get_position(); temp_ax.remove()
-        
+
+    pos_a = ax_first_example.get_position()
+    pos_b = ax_dens.get_position()
     pos_c = ax_scatter.get_position()
-    
+
     y_title = max(pos_a.y1, pos_b.y1, pos_c.y1) + 0.05
-    
-    fig.text(pos_a.x0 - 0.02, y_title, 'a', **lbl_font)
-    fig.text(pos_b.x0 - 0.06, y_title, 'b', **lbl_font)
+
+    fig.text(pos_a.x0 - 0.06, y_title, 'a', **lbl_font)
+    fig.text(pos_b.x0 - 0.02, y_title, 'b', **lbl_font)
     fig.text(pos_c.x0 - 0.03, y_title, 'c', **lbl_font)
 
     out_path = os.path.join(paths.FIGURES_DIR, 'fig2.pdf')
