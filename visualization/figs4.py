@@ -65,10 +65,11 @@ def generate_figs4():
     fig, ax = plt.subplots(figsize=(4.2, 2.8))
     
     ax.plot(thr_vals, counts, color='#3498db', linewidth=2)
+    ax.set_yscale('log')
+    ax.set_ylim(bottom=100)
     ax.set_xlabel("Threshold (gOSI & gDSI)")
-    ax.set_ylabel("Neuron Count")
+    ax.set_ylabel(r"Neuron Count")
     ax.set_xticks([0.0, 0.2, 0.4, 0.6])
-    ax.set_ylim(0, max(counts) * 1.1)
     ax.tick_params(axis='both', which='major', direction='out', length=3, width=1, bottom=True, left=True)
     
     ax.spines['top'].set_visible(False)

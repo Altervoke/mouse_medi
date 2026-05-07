@@ -195,17 +195,18 @@ def generate_fig6():
     
     pvals_layer = []
     groups_layer = []
+    layer_pairs = [(0,1), (1,2), (0,2)]
     
-    for i in range(len(layer_order) - 1):
+    for i, j in layer_pairs:
         g1 = filtered_layer[filtered_layer['layer'] == layer_order[i]][stii_col].dropna()
-        g2 = filtered_layer[filtered_layer['layer'] == layer_order[i+1]][stii_col].dropna()
+        g2 = filtered_layer[filtered_layer['layer'] == layer_order[j]][stii_col].dropna()
         if len(g1) > 0 and len(g2) > 0:
             _, p_val = ttest_ind(g1, g2, equal_var=False)
             pvals_layer.append(p_val)
-            groups_layer.append((i, i+1))
+            groups_layer.append((i, j))
         else:
             pvals_layer.append(np.nan)
-            groups_layer.append((i, i+1))
+            groups_layer.append((i, j))
             
     if pvals_layer:
         valid_indices = [i for i, p in enumerate(pvals_layer) if not np.isnan(p)]
@@ -215,11 +216,14 @@ def generate_fig6():
             for idx, corr_pval in zip(valid_indices, p_corrected_layer):
                 pvals_layer[idx] = corr_pval
 
-    for idx, (i, next_i) in enumerate(groups_layer):
+    for idx, (i, j) in enumerate(groups_layer):
         if not np.isnan(pvals_layer[idx]):
             star = get_star(pvals_layer[idx])
-            x1, x2 = i, i + 1
-            y, h = max(maxs_c[i], maxs_c[i+1]) + 0.05 + i*0.04, 0.02
+            x1, x2 = i, j
+            y = max(maxs_c[i], maxs_c[j]) + 0.05 + idx * 0.04
+            if i == 0 and j == 2:
+                y += 0.12
+            h = 0.02
             axC.plot([x1, x1, x2, x2], [y, y+h, y+h, y], lw=2.0, c='black')
             axC.text((x1+x2)*.5, y + h + 0.01, star, ha='center', va='bottom', color='black', fontsize=38)
     
@@ -251,14 +255,14 @@ def generate_fig6():
     c_m, c_g = '#1f77b4', '#2ca02c'
     axD.errorbar(x_positions, medi_tf_mean, yerr=medi_tf_sem, color=c_m, marker='o', linestyle='-', linewidth=4, label='MEDI TF', capsize=12, capthick=4, elinewidth=4, markersize=12)
     axD.errorbar(x_positions, grat_tf_mean, yerr=grat_tf_sem, color=c_g, marker='o', linestyle='-', linewidth=4, label='Grating TF', capsize=12, capthick=4, elinewidth=4, markersize=12)
-    axD.set_ylabel('Mean Preferred TF (Hz)', color='black', fontsize=34, labelpad=20)
-    axD.set_xticks(x_positions); axD.set_xticklabels(areas, fontsize=34)
+    axD.set_ylabel('Mean Preferred TF (Hz)', color='black', fontsize=38, labelpad=20)
+    axD.set_xticks(x_positions); axD.set_xticklabels(areas, fontsize=32)
     axD.margins(y=0.45); axD.spines['top'].set_visible(False)
     
     axD_sf = axD.twinx()
     axD_sf.errorbar(x_positions, medi_sf_mean, yerr=medi_sf_sem, color=c_m, marker='s', linestyle='--', linewidth=4, label='MEDI SF', capsize=12, capthick=4, elinewidth=4, markersize=12)
     axD_sf.errorbar(x_positions, grat_sf_mean, yerr=grat_sf_sem, color=c_g, marker='s', linestyle='--', linewidth=4, label='Grating SF', capsize=12, capthick=4, elinewidth=4, markersize=12)
-    axD_sf.set_ylabel('Mean Preferred SF (cpp)', color='black', fontsize=34, labelpad=20)
+    axD_sf.set_ylabel('Mean Preferred SF (cpp)', color='black', fontsize=38, labelpad=20)
     axD_sf.margins(y=0.45); axD_sf.spines['top'].set_visible(False)
     
     h1, l1 = axD.get_legend_handles_labels()
@@ -287,8 +291,8 @@ def generate_fig6():
             axE.text(j + 0.3, i + 0.3, sym_m, ha='center', va='center', color=c_m, fontsize=28)
             axE.text(j + 0.7, i + 0.8, sym_g, ha='center', va='center', color=c_g, fontsize=28)
                 
-    axE.text(0.5, -0.05, "TF Significance", transform=axE.transAxes, ha='center', va='top', fontsize=32, color='black')
-    axE.text(1.05, 0.5, "SF Significance", transform=axE.transAxes, ha='left', va='center', rotation=-90, fontsize=32, color='black')
+    axE.text(0.5, -0.05, "TF Significance", transform=axE.transAxes, ha='center', va='top', fontsize=38, color='black')
+    axE.text(1.05, 0.5, "SF Significance", transform=axE.transAxes, ha='left', va='center', rotation=-90, fontsize=38, color='black')
     axE.set_box_aspect(0.9)
     for spine in axE.spines.values(): spine.set_visible(False)
     
