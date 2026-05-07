@@ -10,7 +10,7 @@ This repository contains the code for synthesizing most exciting dynamic inputs 
   <img src="figures/fig1.png" width="80%">
 </p>
 
-Iterative optimization pipeline for generating MEDI. Video frames are passed to the model to compute predicted responses and the loss is backpropagated. Dark yellow path (pixel space): the frames are updated according to the gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{x}}$. Green path (latent space): the latent tensors are updated according to the gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{z}}$.}
+Iterative optimization pipeline for generating MEDI. Video frames are passed to the model to compute predicted responses and the loss is backpropagated. Dark yellow path (pixel space): the frames are updated according to the gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{x}}$. Green path (latent space): the latent tensors are updated according to the gradient $\frac{\partial \mathcal{L}}{\partial \mathbf{z}}$.
 
 ## Requirements
 
