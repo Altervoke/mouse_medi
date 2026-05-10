@@ -7,7 +7,7 @@ project_root = os.path.abspath(os.path.join(current_dir, '../..'))
 if project_root not in sys.path:
     sys.path.append(project_root)
 
-from medi_pipeline.generation.generator import load_foundation_model, generate_pixel_medi_func
+from mouse_medi.generation.generator import load_foundation_model, generate_pixel_medi_func
 
 def main():
     device = 'cuda'

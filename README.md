@@ -53,12 +53,12 @@ pip install -r requirements.txt
 ## Usage
 
 All steps are orchestrated in the tutorial notebook: 
-`mouse_medi/tutorial.ipynb`
+`tutorial.ipynb`
 
 Run it inside the repository with:
 
 ```bash
-jupyter notebook mouse_medi/tutorial.ipynb
+jupyter notebook tutorial.ipynb
 ```
 
 or launch Jupyter Lab from the project root.
