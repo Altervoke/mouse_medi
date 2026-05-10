@@ -32,7 +32,7 @@ cd mouse_medi
 
 ### Step 2: Install the FNN foundation model
 
-The synthesis pipeline depends on the FNN (Foundation Neural Network) digital twin package. It must be installed in the parent directory of `mouse_medi` (i.e., at the same level as this README).
+The synthesis pipeline depends on the FNN digital twin package. It must be installed in the parent directory of `mouse_medi` (i.e., at the same level as this README).
 
 ```bash
 cd ..
